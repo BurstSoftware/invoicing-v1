@@ -70,10 +70,10 @@ def main():
 
         if submit_button and description:
             new_item = {
-                'description': str(description),  # Ensure string
-                'quantity': int(quantity),        # Ensure integer
-                'unit_price': float(unit_price),  # Ensure float
-                'total': float(quantity * unit_price)  # Ensure float
+                'description': str(description),
+                'quantity': int(quantity),
+                'unit_price': float(unit_price),
+                'total': float(quantity * unit_price)
             }
             st.session_state.items.append(new_item)
             st.success(f"Added item: {description}")
@@ -92,6 +92,12 @@ def main():
             st.warning("Please add at least one item before generating an invoice.")
         else:
             try:
+                # Validate items before proceeding
+                if not isinstance(st.session_state.items, list):
+                    st.error("Items data is corrupted. Resetting items.")
+                    st.session_state.items = []
+                    return
+                
                 # Create simple text-based invoice
                 invoice_text = f"""
                 INVOICE
@@ -111,6 +117,8 @@ def main():
                 """
                 
                 for item in st.session_state.items:
+                    if not isinstance(item, dict):
+                        raise ValueError("Invalid item format detected")
                     invoice_text += f"{item['description']} | Qty: {item['quantity']} | ${item['unit_price']:.2f} | ${item['total']:.2f}\n"
                     
                 total_amount = sum(float(item['total']) for item in st.session_state.items)
@@ -124,6 +132,9 @@ def main():
                     get_binary_file_downloader_html(invoice_bytes, f"Invoice_{invoice_date}"),
                     unsafe_allow_html=True
                 )
+            except TypeError as e:
+                st.error(f"Error generating invoice: {str(e)}. Resetting items.")
+                st.session_state.items = []
             except Exception as e:
                 st.error(f"Error generating invoice: {str(e)}")
 
