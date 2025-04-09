@@ -13,10 +13,11 @@ def get_binary_file_downloader_html(bin_file, file_label='File'):
 def main():
     st.title("Simple Invoice Generator")
 
-    # Initialize items as a local list, refreshed each run
-    if 'items' not in st.session_state or not isinstance(st.session_state.items, list):
-        st.session_state.items = []
-    items = st.session_state.items.copy()  # Work with a local copy
+    # Always start with a fresh list, regardless of previous state
+    st.session_state.items = getattr(st.session_state, 'items', [])  # Default to empty list if not set
+    if not isinstance(st.session_state.items, list):
+        st.session_state.items = []  # Force reset if corrupted
+    items = st.session_state.items[:]  # Use slice to create a shallow copy safely
 
     # Company Info
     st.header("Your Company Information")
@@ -59,7 +60,7 @@ def main():
                 'total': float(quantity * unit_price)
             }
             items.append(new_item)
-            st.session_state.items = items  # Update session state after modification
+            st.session_state.items = items  # Sync back to session state
             st.success(f"Added item: {description}")
 
     # Display items
