@@ -42,7 +42,7 @@ def display_items():
         st.error(f"Error displaying items: {str(e)}. Resetting items.")
         st.session_state.items = []
     except Exception as e:
-        st.error(f"Unexpected error: {str(e)}. Resetting items.")
+        st.error(f"Unexpected error in display: {str(e)}. Resetting items.")
         st.session_state.items = []
 
 # Main app
@@ -100,11 +100,15 @@ def main():
     # Generate Invoice
     if st.button("Generate Invoice"):
         ensure_valid_items()
-        items = st.session_state.items
+        items = st.session_state.items  # Work with a local copy
         if not items:
             st.warning("Please add at least one item before generating an invoice.")
         else:
             try:
+                # Explicitly check if items is iterable and a list
+                if not isinstance(items, list):
+                    raise TypeError("Items is not a list, something went wrong with the state.")
+                
                 # Create simple text-based invoice
                 invoice_text = f"""
                 INVOICE
@@ -123,6 +127,10 @@ def main():
                 Items:
                 """
                 
+                # Double-check before iterating
+                if not hasattr(items, '__iter__') or callable(items):
+                    raise TypeError("Items is a method or non-iterable object.")
+                
                 for item in items:
                     if not isinstance(item, dict):
                         raise ValueError("Invalid item format detected")
@@ -140,10 +148,13 @@ def main():
                     unsafe_allow_html=True
                 )
             except TypeError as e:
-                st.error(f"Error generating invoice: {str(e)}. Resetting items.")
+                st.error(f"Type error in invoice generation: {str(e)}. Resetting items.")
+                st.session_state.items = []
+            except ValueError as e:
+                st.error(f"Value error in invoice generation: {str(e)}. Resetting items.")
                 st.session_state.items = []
             except Exception as e:
-                st.error(f"Error generating invoice: {str(e)}. Resetting items.")
+                st.error(f"Unexpected error in invoice generation: {str(e)}. Resetting items.")
                 st.session_state.items = []
 
 if __name__ == "__main__":
