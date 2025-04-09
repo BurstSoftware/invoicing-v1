@@ -9,45 +9,14 @@ def get_binary_file_downloader_html(bin_file, file_label='File'):
     href = f'<a href="data:application/octet-stream;base64,{bin_str}" download="{file_label}.txt">Download {file_label}</a>'
     return href
 
-# Function to ensure items is a valid list
-def ensure_valid_items():
-    if 'items' not in st.session_state or not isinstance(st.session_state.items, list):
-        st.session_state.items = []
-
-# Function to add an item safely
-def add_item(description, quantity, unit_price):
-    ensure_valid_items()
-    new_item = {
-        'description': str(description),
-        'quantity': int(quantity),
-        'unit_price': float(unit_price),
-        'total': float(quantity * unit_price)
-    }
-    st.session_state.items.append(new_item)
-
-# Function to display items
-def display_items():
-    ensure_valid_items()
-    items = st.session_state.items
-    try:
-        if items and all(isinstance(item, dict) for item in items):
-            df = pd.DataFrame(items)
-            st.dataframe(df.style.format({'unit_price': '${:.2f}', 'total': '${:.2f}'}))
-
-            total_amount = sum(float(item['total']) for item in items)
-            st.write(f"**Total Amount: ${total_amount:.2f}**")
-        else:
-            st.info("No valid items to display.")
-    except ValueError as e:
-        st.error(f"Error displaying items: {str(e)}. Resetting items.")
-        st.session_state.items = []
-    except Exception as e:
-        st.error(f"Unexpected error in display: {str(e)}. Resetting items.")
-        st.session_state.items = []
-
 # Main app
 def main():
     st.title("Simple Invoice Generator")
+
+    # Initialize items as a local list, refreshed each run
+    if 'items' not in st.session_state or not isinstance(st.session_state.items, list):
+        st.session_state.items = []
+    items = st.session_state.items.copy()  # Work with a local copy
 
     # Company Info
     st.header("Your Company Information")
@@ -68,10 +37,7 @@ def main():
     with col4:
         client_address = st.text_area("Client Address", "456 Client Road\nCity, State 67890")
 
-    # Ensure items is initialized
-    ensure_valid_items()
-
-    # Invoice Items
+    # Invoice Items Form
     st.header("Invoice Items")
     with st.form(key='item_form', clear_on_submit=True):
         col5, col6, col7, col8 = st.columns(4)
@@ -86,30 +52,43 @@ def main():
             submit_button = st.form_submit_button("Add Item")
 
         if submit_button and description:
-            add_item(description, quantity, unit_price)
+            new_item = {
+                'description': str(description),
+                'quantity': int(quantity),
+                'unit_price': float(unit_price),
+                'total': float(quantity * unit_price)
+            }
+            items.append(new_item)
+            st.session_state.items = items  # Update session state after modification
             st.success(f"Added item: {description}")
 
     # Display items
-    display_items()
+    if items:
+        try:
+            df = pd.DataFrame(items)
+            st.dataframe(df.style.format({'unit_price': '${:.2f}', 'total': '${:.2f}'}))
+
+            total_amount = sum(item['total'] for item in items)
+            st.write(f"**Total Amount: ${total_amount:.2f}**")
+        except Exception as e:
+            st.error(f"Error displaying items: {str(e)}. Clearing items.")
+            items.clear()
+            st.session_state.items = items
+    else:
+        st.info("No items added yet.")
 
     # Clear items button
     if st.button("Clear All Items"):
-        st.session_state.items = []
+        items.clear()
+        st.session_state.items = items
         st.experimental_rerun()
 
     # Generate Invoice
     if st.button("Generate Invoice"):
-        ensure_valid_items()
-        items = st.session_state.items  # Work with a local copy
         if not items:
             st.warning("Please add at least one item before generating an invoice.")
         else:
             try:
-                # Explicitly check if items is iterable and a list
-                if not isinstance(items, list):
-                    raise TypeError("Items is not a list, something went wrong with the state.")
-                
-                # Create simple text-based invoice
                 invoice_text = f"""
                 INVOICE
                 Date: {invoice_date}
@@ -126,36 +105,21 @@ def main():
 
                 Items:
                 """
-                
-                # Double-check before iterating
-                if not hasattr(items, '__iter__') or callable(items):
-                    raise TypeError("Items is a method or non-iterable object.")
-                
                 for item in items:
-                    if not isinstance(item, dict):
-                        raise ValueError("Invalid item format detected")
                     invoice_text += f"{item['description']} | Qty: {item['quantity']} | ${item['unit_price']:.2f} | ${item['total']:.2f}\n"
-                    
-                total_amount = sum(float(item['total']) for item in items)
+                
+                total_amount = sum(item['total'] for item in items)
                 invoice_text += f"\nTOTAL: ${total_amount:.2f}"
 
-                # Convert to bytes for download
                 invoice_bytes = invoice_text.encode('utf-8')
-                
-                # Download link
                 st.markdown(
                     get_binary_file_downloader_html(invoice_bytes, f"Invoice_{invoice_date}"),
                     unsafe_allow_html=True
                 )
-            except TypeError as e:
-                st.error(f"Type error in invoice generation: {str(e)}. Resetting items.")
-                st.session_state.items = []
-            except ValueError as e:
-                st.error(f"Value error in invoice generation: {str(e)}. Resetting items.")
-                st.session_state.items = []
             except Exception as e:
-                st.error(f"Unexpected error in invoice generation: {str(e)}. Resetting items.")
-                st.session_state.items = []
+                st.error(f"Error generating invoice: {str(e)}. Clearing items.")
+                items.clear()
+                st.session_state.items = items
 
 if __name__ == "__main__":
     main()
