@@ -51,15 +51,20 @@ def main():
             submit_button = st.form_submit_button("Add Item")
 
         if submit_button and description:
-            st.session_state.items.append({
+            new_item = {
                 'description': description,
                 'quantity': quantity,
                 'unit_price': unit_price,
                 'total': quantity * unit_price
-            })
+            }
+            st.session_state.items.append(new_item)
+            st.success(f"Added item: {description}")
 
     # Display items only if there are any
     if st.session_state.items:
+        # Debug: Show raw items for troubleshooting
+        st.write("Raw items in session state:", st.session_state.items)
+        
         try:
             df = pd.DataFrame(st.session_state.items)
             st.dataframe(df.style.format({'unit_price': '${:.2f}', 'total': '${:.2f}'}))
@@ -67,8 +72,13 @@ def main():
             # Calculate total
             total_amount = sum(item['total'] for item in st.session_state.items)
             st.write(f"**Total Amount: ${total_amount:.2f}**")
+        except ValueError as e:
+            st.error(f"Error creating DataFrame: {str(e)}")
+            st.write("Please check the data format of the items.")
         except Exception as e:
-            st.error(f"Error displaying items: {str(e)}")
+            st.error(f"Unexpected error: {str(e)}")
+    else:
+        st.info("No items added yet. Please add an item to see the table.")
 
     # Clear items button
     if st.button("Clear All Items"):
