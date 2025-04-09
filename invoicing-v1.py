@@ -9,6 +9,24 @@ def get_binary_file_downloader_html(bin_file, file_label='File'):
     href = f'<a href="data:application/octet-stream;base64,{bin_str}" download="{file_label}.txt">Download {file_label}</a>'
     return href
 
+# Function to display items
+def display_items(items):
+    try:
+        if items and isinstance(items, list) and all(isinstance(item, dict) for item in items):
+            df = pd.DataFrame(items)
+            st.dataframe(df.style.format({'unit_price': '${:.2f}', 'total': '${:.2f}'}))
+
+            total_amount = sum(float(item['total']) for item in items)
+            st.write(f"**Total Amount: ${total_amount:.2f}**")
+        else:
+            st.info("No valid items to display.")
+    except ValueError as e:
+        st.error(f"Error displaying items: {str(e)}. Resetting items.")
+        st.session_state.items = []
+    except Exception as e:
+        st.error(f"Unexpected error: {str(e)}. Resetting items.")
+        st.session_state.items = []
+
 # Main app
 def main():
     st.title("Simple Invoice Generator")
@@ -32,7 +50,7 @@ def main():
     with col4:
         client_address = st.text_area("Client Address", "456 Client Road\nCity, State 67890")
 
-    # Initialize session state for items if not present or if it's not a list
+    # Initialize session state for items if not present or invalid
     if 'items' not in st.session_state or not isinstance(st.session_state.items, list):
         st.session_state.items = []
 
@@ -52,29 +70,16 @@ def main():
 
         if submit_button and description:
             new_item = {
-                'description': description,
-                'quantity': quantity,
-                'unit_price': unit_price,
-                'total': quantity * unit_price
+                'description': str(description),  # Ensure string
+                'quantity': int(quantity),        # Ensure integer
+                'unit_price': float(unit_price),  # Ensure float
+                'total': float(quantity * unit_price)  # Ensure float
             }
             st.session_state.items.append(new_item)
             st.success(f"Added item: {description}")
 
-    # Display items only if there are any
-    if st.session_state.items:
-        try:
-            df = pd.DataFrame(st.session_state.items)
-            st.dataframe(df.style.format({'unit_price': '${:.2f}', 'total': '${:.2f}'}))
-
-            # Calculate total
-            total_amount = sum(item['total'] for item in st.session_state.items)
-            st.write(f"**Total Amount: ${total_amount:.2f}**")
-        except ValueError as e:
-            st.error(f"Error displaying items: {str(e)}. Please clear items and try again.")
-        except Exception as e:
-            st.error(f"Unexpected error: {str(e)}. Please clear items and try again.")
-    else:
-        st.info("No items added yet. Please add an item to see the table.")
+    # Display items
+    display_items(st.session_state.items)
 
     # Clear items button
     if st.button("Clear All Items"):
@@ -108,7 +113,7 @@ def main():
                 for item in st.session_state.items:
                     invoice_text += f"{item['description']} | Qty: {item['quantity']} | ${item['unit_price']:.2f} | ${item['total']:.2f}\n"
                     
-                total_amount = sum(item['total'] for item in st.session_state.items)
+                total_amount = sum(float(item['total']) for item in st.session_state.items)
                 invoice_text += f"\nTOTAL: ${total_amount:.2f}"
 
                 # Convert to bytes for download
