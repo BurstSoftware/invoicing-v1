@@ -32,8 +32,8 @@ def main():
     with col4:
         client_address = st.text_area("Client Address", "456 Client Road\nCity, State 67890")
 
-    # Initialize session state for items if not present
-    if 'items' not in st.session_state:
+    # Initialize session state for items if not present or if it's not a list
+    if 'items' not in st.session_state or not isinstance(st.session_state.items, list):
         st.session_state.items = []
 
     # Invoice Items
@@ -62,9 +62,6 @@ def main():
 
     # Display items only if there are any
     if st.session_state.items:
-        # Debug: Show raw items for troubleshooting
-        st.write("Raw items in session state:", st.session_state.items)
-        
         try:
             df = pd.DataFrame(st.session_state.items)
             st.dataframe(df.style.format({'unit_price': '${:.2f}', 'total': '${:.2f}'}))
@@ -73,10 +70,9 @@ def main():
             total_amount = sum(item['total'] for item in st.session_state.items)
             st.write(f"**Total Amount: ${total_amount:.2f}**")
         except ValueError as e:
-            st.error(f"Error creating DataFrame: {str(e)}")
-            st.write("Please check the data format of the items.")
+            st.error(f"Error displaying items: {str(e)}. Please clear items and try again.")
         except Exception as e:
-            st.error(f"Unexpected error: {str(e)}")
+            st.error(f"Unexpected error: {str(e)}. Please clear items and try again.")
     else:
         st.info("No items added yet. Please add an item to see the table.")
 
@@ -90,37 +86,41 @@ def main():
         if not st.session_state.items:
             st.warning("Please add at least one item before generating an invoice.")
         else:
-            # Create simple text-based invoice
-            invoice_text = f"""
-            INVOICE
-            Date: {invoice_date}
+            try:
+                # Create simple text-based invoice
+                invoice_text = f"""
+                INVOICE
+                Date: {invoice_date}
 
-            From:
-            {company_name}
-            {company_address}
-            {company_email}
+                From:
+                {company_name}
+                {company_address}
+                {company_email}
 
-            To:
-            {client_name}
-            {client_address}
-            {client_email}
+                To:
+                {client_name}
+                {client_address}
+                {client_email}
 
-            Items:
-            """
-            
-            for item in st.session_state.items:
-                invoice_text += f"{item['description']} | Qty: {item['quantity']} | ${item['unit_price']:.2f} | ${item['total']:.2f}\n"
+                Items:
+                """
                 
-            invoice_text += f"\nTOTAL: ${total_amount:.2f}"
+                for item in st.session_state.items:
+                    invoice_text += f"{item['description']} | Qty: {item['quantity']} | ${item['unit_price']:.2f} | ${item['total']:.2f}\n"
+                    
+                total_amount = sum(item['total'] for item in st.session_state.items)
+                invoice_text += f"\nTOTAL: ${total_amount:.2f}"
 
-            # Convert to bytes for download
-            invoice_bytes = invoice_text.encode('utf-8')
-            
-            # Download link
-            st.markdown(
-                get_binary_file_downloader_html(invoice_bytes, f"Invoice_{invoice_date}"),
-                unsafe_allow_html=True
-            )
+                # Convert to bytes for download
+                invoice_bytes = invoice_text.encode('utf-8')
+                
+                # Download link
+                st.markdown(
+                    get_binary_file_downloader_html(invoice_bytes, f"Invoice_{invoice_date}"),
+                    unsafe_allow_html=True
+                )
+            except Exception as e:
+                st.error(f"Error generating invoice: {str(e)}")
 
 if __name__ == "__main__":
     main()
