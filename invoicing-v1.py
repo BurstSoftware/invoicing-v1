@@ -3,10 +3,10 @@ import pandas as pd
 from datetime import datetime
 import base64
 
-# Function to create downloadable PDF link (simplified version)
+# Function to create downloadable file link
 def get_binary_file_downloader_html(bin_file, file_label='File'):
     bin_str = base64.b64encode(bin_file).decode()
-    href = f'<a href="data:application/pdf;base64,{bin_str}" download="{file_label}.pdf">Download {file_label}</a>'
+    href = f'<a href="data:application/octet-stream;base64,{bin_str}" download="{file_label}.txt">Download {file_label}</a>'
     return href
 
 # Main app
@@ -32,11 +32,12 @@ def main():
     with col4:
         client_address = st.text_area("Client Address", "456 Client Road\nCity, State 67890")
 
-    # Invoice Items
-    st.header("Invoice Items")
+    # Initialize session state for items if not present
     if 'items' not in st.session_state:
         st.session_state.items = []
 
+    # Invoice Items
+    st.header("Invoice Items")
     with st.form(key='item_form', clear_on_submit=True):
         col5, col6, col7, col8 = st.columns(4)
         with col5:
@@ -57,53 +58,59 @@ def main():
                 'total': quantity * unit_price
             })
 
-    # Display items
+    # Display items only if there are any
     if st.session_state.items:
-        df = pd.DataFrame(st.session_state.items)
-        st.dataframe(df.style.format({'unit_price': '${:.2f}', 'total': '${:.2f}'}))
+        try:
+            df = pd.DataFrame(st.session_state.items)
+            st.dataframe(df.style.format({'unit_price': '${:.2f}', 'total': '${:.2f}'}))
 
-        # Calculate total
-        total_amount = sum(item['total'] for item in st.session_state.items)
-        st.write(f"**Total Amount: ${total_amount:.2f}**")
+            # Calculate total
+            total_amount = sum(item['total'] for item in st.session_state.items)
+            st.write(f"**Total Amount: ${total_amount:.2f}**")
+        except Exception as e:
+            st.error(f"Error displaying items: {str(e)}")
 
-        # Clear items button
-        if st.button("Clear All Items"):
-            st.session_state.items = []
-            st.experimental_rerun()
+    # Clear items button
+    if st.button("Clear All Items"):
+        st.session_state.items = []
+        st.experimental_rerun()
 
     # Generate Invoice
     if st.button("Generate Invoice"):
-        # Create simple text-based invoice
-        invoice_text = f"""
-        INVOICE
-        Date: {invoice_date}
+        if not st.session_state.items:
+            st.warning("Please add at least one item before generating an invoice.")
+        else:
+            # Create simple text-based invoice
+            invoice_text = f"""
+            INVOICE
+            Date: {invoice_date}
 
-        From:
-        {company_name}
-        {company_address}
-        {company_email}
+            From:
+            {company_name}
+            {company_address}
+            {company_email}
 
-        To:
-        {client_name}
-        {client_address}
-        {client_email}
+            To:
+            {client_name}
+            {client_address}
+            {client_email}
 
-        Items:
-        """
-        
-        for item in st.session_state.items:
-            invoice_text += f"{item['description']} | Qty: {item['quantity']} | ${item['unit_price']:.2f} | ${item['total']:.2f}\n"
+            Items:
+            """
             
-        invoice_text += f"\nTOTAL: ${total_amount:.2f}"
+            for item in st.session_state.items:
+                invoice_text += f"{item['description']} | Qty: {item['quantity']} | ${item['unit_price']:.2f} | ${item['total']:.2f}\n"
+                
+            invoice_text += f"\nTOTAL: ${total_amount:.2f}"
 
-        # Convert to bytes for download
-        invoice_bytes = invoice_text.encode('utf-8')
-        
-        # Download link
-        st.markdown(
-            get_binary_file_downloader_html(invoice_bytes, f"Invoice_{invoice_date}"),
-            unsafe_allow_html=True
-        )
+            # Convert to bytes for download
+            invoice_bytes = invoice_text.encode('utf-8')
+            
+            # Download link
+            st.markdown(
+                get_binary_file_downloader_html(invoice_bytes, f"Invoice_{invoice_date}"),
+                unsafe_allow_html=True
+            )
 
 if __name__ == "__main__":
     main()
